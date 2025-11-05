@@ -71,14 +71,15 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        // CONFIGURACIÓN ESTÁTICA (FALLBACK)
+        // CONFIGURACIÓN ESTÁTICA (FALLBACK) - ¡CLAVE CORREGIDA!
         // Se usa si las variables globales de Canvas no están disponibles.
         // =========================================================================
         const FALLBACK_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyBt1HH530iJ4-oHnHP_TmstzYoMBAKjcqi", // Tu clave estática de la imagen 5fb3c4.png
+            // Esta clave está corregida según tu último mensaje
+            apiKey: "AIzaSyBtlHH530iJ4-oHnHP_TmstzYoMBAKjcqI", 
             authDomain: "censoalumbradoonline-29023.firebaseapp.com",
             projectId: "censoalumbradoonline-29023",
-            storageBucket: "censoalumbradoonline-29023.appspot.com",
+            storageBucket: "censoalumbradoonline-29023.firebasestorage.app",
             messagingSenderId: "205023155883",
             appId: "1:205023155883:web:1597aa05ecb6c58bda49ee",
             measurementId: "G-4JR0PJYCDW"
@@ -87,27 +88,26 @@
 
         // =========================================================================
         // Detección de entorno (Hybrid Auth)
-        // 1. Intenta usar las variables inyectadas (si estamos en Canvas).
-        // 2. Si no existen (o falla la inyección), usa la configuración estática (Fallback).
+        // Usa las variables de Canvas si están, si no, usa el Fallback.
         // =========================================================================
         let firebaseConfig = null;
         let initialAuthToken = null;
         let appId = FALLBACK_APP_DATA_ID;
         
         try {
-            // Intenta cargar las variables de Canvas
+            // 1. Intenta cargar las variables de Canvas (Prioridad)
             firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
             initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_DATA_ID; 
 
             if (!firebaseConfig) {
-                // Si la inyección falló, usamos el fallback
+                // 2. Si la inyección falló, usamos el fallback (Netlify)
                 firebaseConfig = FALLBACK_FIREBASE_CONFIG;
                 console.warn("ADVERTENCIA: Usando configuración estática (Fallback) de Firebase.");
             }
 
         } catch (e) {
-            // Si el parsing JSON falla o hay otro error, usamos el fallback
+            // 3. Si hay un error, usamos el fallback
             firebaseConfig = FALLBACK_FIREBASE_CONFIG;
             console.error("Fallo la carga de variables de Canvas. Usando configuración estática. Error:", e);
         }
@@ -171,8 +171,8 @@
 
 
                 // Lógica de autenticación: Usar token custom si está disponible, sino anónimo
+                // Si initialAuthToken es null, signInWithCustomToken lanzará un error que catch manejará
                 if (initialAuthToken) {
-                    // Si initialAuthToken es null, fallará aquí, pero lo intentamos por si acaso
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     // Si el token no está disponible (Netlify o fallo de inyección), usamos anónimo
@@ -210,9 +210,17 @@
 
             } catch (error) {
                 console.error("Error al inicializar Firebase o autenticar:", error);
-                const errorMessage = error.message.includes("api-key-not-valid") 
-                    ? "Error Crítico: API Key inválida (Revisa tu configuración en Firebase)."
-                    : `Error Crítico: ${error.message}`;
+                
+                let errorMessage;
+                if (error.message.includes("api-key-not-valid")) {
+                    errorMessage = "Error Crítico: API Key inválida (Revisa tu configuración en Firebase).";
+                } else if (error.message.includes("network-request-failed")) {
+                    errorMessage = "Error de red: No se pudo conectar a Firebase.";
+                } else if (error.message.includes("project-not-found")) {
+                    errorMessage = "Error: ID de proyecto no encontrado.";
+                } else {
+                    errorMessage = `Error Crítico: ${error.message}`;
+                }
                     
                 geoStatus.textContent = errorMessage;
                 addPointBtn.disabled = true;
@@ -258,8 +266,13 @@
                 })
                 .catch(error => {
                     console.error("Error al añadir documento:", error);
-                    showMessage('error', `Error al registrar: ${error.message}`);
-                    geoStatus.textContent = `Error al registrar el punto: ${error.message}`;
+                    // Esto a menudo ocurre por un problema de reglas de seguridad
+                    let errorMsg = error.message.includes('permission-denied') 
+                                ? 'Error de Permiso: Revisa las reglas de seguridad de Firestore.' 
+                                : `Error al registrar: ${error.message}`;
+
+                    showMessage('error', errorMsg);
+                    geoStatus.textContent = errorMsg;
                     geoStatus.classList.remove('text-green-600');
                     geoStatus.classList.add('text-red-500');
                 });
