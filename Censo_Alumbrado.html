@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte Ciudadano de Luminarias</title>
+    
+    <!-- Incluir Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""/>
     <!-- Incluir Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Configuración para usar la fuente Inter -->
     <script>
         tailwind.config = {
@@ -18,6 +24,7 @@
             }
         }
     </script>
+    
     <!-- Estilos personalizados para el mapa -->
     <style>
         /* Asegura que el contenedor del mapa tenga una altura definida */
@@ -27,20 +34,6 @@
             border-radius: 0.5rem; /* Borde redondeado */
         }
     </style>
-    
-    <!--
-        AVISO IMPORTANTE PARA GOOGLE MAPS:
-        La URL de abajo requiere una clave de API válida (YOUR_API_KEY).
-        La hemos dejado vacía ('') para intentar que funcione en este entorno,
-        pero es la causa del error "ApiProjectMapError" que verás en la consola.
-        
-        Para que esto funcione en Netlify o Firebase, DEBES reemplazar '' por tu clave.
-    -->
-    <script 
-        src="https://maps.googleapis.com/maps/api/js?key=&callback=initMap" 
-        async 
-        defer>
-    </script>
 </head>
 
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -60,7 +53,7 @@
                 <!-- SECCIÓN MAPA -->
                 <div class="border-b border-gray-200 pb-6">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">1. Ubicación de la Luminaria/Poste</h2>
-                    <p class="text-sm text-gray-500 mb-4">Haz clic en el mapa para marcar la ubicación exacta del problema. El mapa inicia en Ciudad de México.</p>
+                    <p class="text-sm text-gray-500 mb-4">Haz clic en el mapa para marcar la ubicación exacta del problema. El mapa utiliza OpenStreetMap.</p>
                     
                     <div id="map" class="rounded-lg shadow-inner bg-gray-200 flex items-center justify-center">
                          <span id="map-loading-text" class="text-gray-600 font-medium">Cargando mapa...</span>
@@ -135,72 +128,16 @@
             </form>
 
             <footer class="mt-8 pt-4 border-t text-center text-sm text-gray-500">
-                <p>Reporte Ciudadano v1.3 (Google Maps). ID de Usuario: <span id="userIdDisplay" class="font-mono text-xs text-gray-700 bg-gray-100 p-1 rounded">Cargando...</span></p>
+                <p>Reporte Ciudadano v1.3 (Leaflet/OSM). ID de Usuario: <span id="userIdDisplay" class="font-mono text-xs text-gray-700 bg-gray-100 p-1 rounded">Cargando...</span></p>
                 <div id="authStatus" class="mt-1 text-xs text-red-500"></div>
             </footer>
         </main>
     </div>
 
-    <!-- Script de inicialización del mapa (Google Maps - Carga asíncrona) -->
-    <script>
-        let map;
-        let marker;
-        // Coordenadas de la Ciudad de México
-        const defaultCoords = { lat: 19.432608, lng: -99.133209 }; 
-        const MAP_LOADING_TEXT = document.getElementById('map-loading-text');
-
-        /**
-         * Actualiza los campos de Latitud/Longitud con las coordenadas del marcador.
-         */
-        function updateCoords(latlng) {
-            document.getElementById('latitud').value = latlng.lat().toFixed(6);
-            document.getElementById('longitud').value = latlng.lng().toFixed(6);
-        }
-
-        /**
-         * Función de inicialización de Google Maps (llamada por el callback de la API).
-         */
-        window.initMap = function() {
-            try {
-                // Ocultar texto de carga
-                MAP_LOADING_TEXT.style.display = 'none';
-
-                // Inicialización del mapa
-                map = new google.maps.Map(document.getElementById('map'), {
-                    center: defaultCoords,
-                    zoom: 13,
-                    mapTypeControl: false, // Opciones de UI básicas
-                    streetViewControl: false,
-                    fullscreenControl: false,
-                });
-
-                // Marcador arrastrable
-                marker = new google.maps.Marker({
-                    position: defaultCoords,
-                    map: map,
-                    draggable: true,
-                    title: "Ubicación del Reporte"
-                });
-
-                // Evento al hacer clic en el mapa (mueve el marcador)
-                map.addListener('click', (e) => {
-                    marker.setPosition(e.latLng);
-                    updateCoords(e.latLng);
-                });
-
-                // Evento al arrastrar el marcador
-                marker.addListener('dragend', () => {
-                    updateCoords(marker.getPosition());
-                });
-
-                // Cargar coordenadas iniciales en los campos
-                updateCoords(marker.getPosition());
-
-            } catch (e) {
-                console.error("Google Maps Error (initMap):", e.message);
-                MAP_LOADING_TEXT.textContent = "Error CRÍTICO al inicializar Google Maps (posiblemente por falta de clave de API).";
-            }
-        }
+    <!-- Script de Leaflet (OpenStreetMap) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20n6a9Kx/A6Z/z8u0h6W2z2R5S5Q/2gB1zW8k8t8u8w="
+        crossorigin="">
     </script>
 
     <!-- Script principal de Firebase y Lógica (type="module") -->
@@ -224,6 +161,13 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Variables del Mapa (Leaflet)
+        let map;
+        let marker;
+        // Coordenadas de la Ciudad de México
+        const defaultCoords = [19.432608, -99.133209]; 
+        const MAP_LOADING_TEXT = document.getElementById('map-loading-text');
 
         /**
          * Muestra un mensaje de estado en la UI.
@@ -268,9 +212,62 @@
                 spinner.classList.add('hidden');
             }
         }
+        
+        /**
+         * Actualiza los campos de Latitud/Longitud con las coordenadas del marcador.
+         */
+        function updateCoords(latlng) {
+            document.getElementById('latitud').value = latlng.lat.toFixed(6);
+            document.getElementById('longitud').value = latlng.lng.toFixed(6);
+        }
 
+        /**
+         * Inicializa el mapa Leaflet.
+         */
+        function initMap() {
+            try {
+                // Ocultar texto de carga
+                MAP_LOADING_TEXT.style.display = 'none';
+
+                // Inicialización del mapa (utiliza la variable global L de Leaflet)
+                map = L.map('map').setView(defaultCoords, 13); // [lat, lng], zoom 13
+
+                // Añadir mosaicos de OpenStreetMap
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                // Marcador arrastrable
+                marker = L.marker(defaultCoords, {
+                    draggable: true,
+                    title: "Ubicación del Reporte"
+                }).addTo(map);
+
+                // Evento al hacer clic en el mapa (mueve el marcador)
+                map.on('click', (e) => {
+                    marker.setLatLng(e.latlng);
+                    updateCoords(e.latlng);
+                });
+
+                // Evento al arrastrar el marcador
+                marker.on('dragend', (e) => {
+                    const latlng = e.target.getLatLng();
+                    updateCoords(latlng);
+                });
+
+                // Cargar coordenadas iniciales en los campos
+                const initialLatLng = marker.getLatLng();
+                updateCoords(initialLatLng);
+                
+            } catch (e) {
+                console.error("Leaflet Error (initMap):", e.message);
+                MAP_LOADING_TEXT.textContent = "Error CRÍTICO al inicializar Leaflet. Recarga la página si el problema persiste.";
+            }
+        }
+        
         // --- INICIALIZACIÓN DE FIREBASE Y AUTENTICACIÓN ---
         try {
+            // Se inicializa Firebase
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
@@ -287,11 +284,15 @@
                     authStatus.textContent = 'Autenticado.';
                     authStatus.classList.remove('text-red-500');
                     authStatus.classList.add('text-green-600');
+                    
+                    // Inicializar el mapa una vez que el script de Leaflet haya cargado
+                    initMap(); 
 
                 } else if (!isAuthReady) {
                     userIdDisplay.textContent = 'No autenticado.';
                     authStatus.textContent = 'Usuario no autenticado. Intentando autenticación anónima...';
                     try {
+                        // Intenta iniciar sesión con el token personalizado o anónimamente
                         if (initialAuthToken) {
                              await signInWithCustomToken(auth, initialAuthToken);
                         } else {
@@ -305,6 +306,7 @@
                         userId = `temp-user-${crypto.randomUUID()}`;
                         userIdDisplay.textContent = userId;
                         isAuthReady = true;
+                        initMap(); 
                     }
                 }
             });
@@ -351,6 +353,7 @@
             };
 
             try {
+                // Ruta para guardar datos públicos de la aplicación
                 const reportesCollectionRef = collection(db, `artifacts/${appId}/public/data/reportesLuminarias`);
                 const docRef = await addDoc(reportesCollectionRef, reporteData);
 
@@ -360,9 +363,10 @@
                 
                 // Restablecer el marcador al centro inicial
                 if (typeof map !== 'undefined' && typeof marker !== 'undefined') {
-                    marker.setPosition(defaultCoords);
-                    map.setCenter(defaultCoords);
-                    updateCoords(marker.getPosition());
+                    const defaultLatLng = L.latLng(defaultCoords[0], defaultCoords[1]);
+                    marker.setLatLng(defaultLatLng);
+                    map.setView(defaultLatLng, 13);
+                    updateCoords(defaultLatLng);
                 }
 
             } catch (e) {
