@@ -71,12 +71,46 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        // CONFIGURACIÓN PARA ENTORNO CANVAS: Usa variables globales
-        // Estas variables son inyectadas por el sistema y deben ser usadas.
+        // CONFIGURACIÓN ESTÁTICA (FALLBACK)
+        // Se usa si las variables globales de Canvas no están disponibles.
         // =========================================================================
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
+        const FALLBACK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBt1HH530iJ4-oHnHP_TmstzYoMBAKjcqi", // Tu clave estática de la imagen 5fb3c4.png
+            authDomain: "censoalumbradoonline-29023.firebaseapp.com",
+            projectId: "censoalumbradoonline-29023",
+            storageBucket: "censoalumbradoonline-29023.appspot.com",
+            messagingSenderId: "205023155883",
+            appId: "1:205023155883:web:1597aa05ecb6c58bda49ee",
+            measurementId: "G-4JR0PJYCDW"
+        };
+        const FALLBACK_APP_DATA_ID = "censo-alumbrado-publico-v1";
+
+        // =========================================================================
+        // Detección de entorno (Hybrid Auth)
+        // 1. Intenta usar las variables inyectadas (si estamos en Canvas).
+        // 2. Si no existen (o falla la inyección), usa la configuración estática (Fallback).
+        // =========================================================================
+        let firebaseConfig = null;
+        let initialAuthToken = null;
+        let appId = FALLBACK_APP_DATA_ID;
+        
+        try {
+            // Intenta cargar las variables de Canvas
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_DATA_ID; 
+
+            if (!firebaseConfig) {
+                // Si la inyección falló, usamos el fallback
+                firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+                console.warn("ADVERTENCIA: Usando configuración estática (Fallback) de Firebase.");
+            }
+
+        } catch (e) {
+            // Si el parsing JSON falla o hay otro error, usamos el fallback
+            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+            console.error("Fallo la carga de variables de Canvas. Usando configuración estática. Error:", e);
+        }
 
         let app;
         let db;
@@ -123,8 +157,8 @@
         // Función de inicialización
         async function initializeFirebase() {
             try {
-                if (!firebaseConfig) {
-                    throw new Error("Configuración de Firebase no disponible.");
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Configuración de Firebase incompleta o no disponible.");
                 }
                 
                 setLogLevel('debug'); // Útil para ver logs de Firebase en la consola
@@ -138,8 +172,10 @@
 
                 // Lógica de autenticación: Usar token custom si está disponible, sino anónimo
                 if (initialAuthToken) {
+                    // Si initialAuthToken es null, fallará aquí, pero lo intentamos por si acaso
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
+                    // Si el token no está disponible (Netlify o fallo de inyección), usamos anónimo
                     await signInAnonymously(auth);
                 }
 
@@ -196,7 +232,7 @@
          * Colección pública: artifacts/{appId}/public/data/geo_points
          */
         function getGeoPointsCollectionRef() {
-            // Se usa el appId inyectado por el sistema
+            // Se usa el appId cargado (ya sea del sistema o del fallback)
             const collectionPath = `artifacts/${appId}/public/data/geo_points`; 
             return collection(db, collectionPath);
         }
