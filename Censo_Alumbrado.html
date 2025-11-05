@@ -71,11 +71,10 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        // CONFIGURACIÓN ESTÁTICA (FALLBACK) - ¡CLAVE CORREGIDA!
-        // Se usa si las variables globales de Canvas no están disponibles.
+        // CONFIGURACIÓN ESTÁTICA (FALLBACK) - CLAVE CORREGIDA
         // =========================================================================
         const FALLBACK_FIREBASE_CONFIG = {
-            // Esta clave está corregida según tu último mensaje
+            // Clave corregida: AIzaSyBtlHH530iJ4-oHnHP_TmstzYoMBAKjcqI
             apiKey: "AIzaSyBtlHH530iJ4-oHnHP_TmstzYoMBAKjcqI", 
             authDomain: "censoalumbradoonline-29023.firebaseapp.com",
             projectId: "censoalumbradoonline-29023",
@@ -88,26 +87,25 @@
 
         // =========================================================================
         // Detección de entorno (Hybrid Auth)
-        // Usa las variables de Canvas si están, si no, usa el Fallback.
         // =========================================================================
         let firebaseConfig = null;
         let initialAuthToken = null;
         let appId = FALLBACK_APP_DATA_ID;
         
         try {
-            // 1. Intenta cargar las variables de Canvas (Prioridad)
+            // Intenta cargar las variables de Canvas (Prioridad)
             firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
             initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_DATA_ID; 
 
             if (!firebaseConfig) {
-                // 2. Si la inyección falló, usamos el fallback (Netlify)
+                // Si la inyección falló (Netlify), usamos el fallback estático
                 firebaseConfig = FALLBACK_FIREBASE_CONFIG;
                 console.warn("ADVERTENCIA: Usando configuración estática (Fallback) de Firebase.");
             }
 
         } catch (e) {
-            // 3. Si hay un error, usamos el fallback
+            // Si hay un error, usamos el fallback
             firebaseConfig = FALLBACK_FIREBASE_CONFIG;
             console.error("Fallo la carga de variables de Canvas. Usando configuración estática. Error:", e);
         }
@@ -161,22 +159,21 @@
                     throw new Error("Configuración de Firebase incompleta o no disponible.");
                 }
                 
-                setLogLevel('debug'); // Útil para ver logs de Firebase en la consola
+                setLogLevel('debug'); 
 
                 app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+                
+                // === INICIA LA AUTENTICACIÓN ===
+                auth = getAuth(app); 
                 
                 appIdSpan.textContent = appId;
 
-
-                // Lógica de autenticación: Usar token custom si está disponible, sino anónimo
-                // Si initialAuthToken es null, signInWithCustomToken lanzará un error que catch manejará
+                // Lógica de autenticación: 
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    // Si el token no está disponible (Netlify o fallo de inyección), usamos anónimo
-                    await signInAnonymously(auth);
+                    // Aquí se produce el error si Auth no está habilitado
+                    await signInAnonymously(auth); 
                 }
 
                 
@@ -190,11 +187,14 @@
                         geoStatus.classList.remove('text-red-500');
                         geoStatus.classList.add('text-green-600');
                         
+                        // Inicializar Firestore DESPUÉS de la autenticación
+                        db = getFirestore(app);
                         listenForGeoPoints();
+
                     } else {
                         userIdSpan.textContent = 'NO AUTENTICADO';
                         addPointBtn.disabled = true;
-                        geoStatus.textContent = "Error: La sesión no se pudo establecer. Verifica tus reglas de seguridad.";
+                        geoStatus.textContent = "Error: Sesión no establecida. Revisa la Auth de Firebase.";
                         geoStatus.classList.remove('text-green-600');
                         geoStatus.classList.add('text-red-500');
                     }
@@ -212,12 +212,12 @@
                 console.error("Error al inicializar Firebase o autenticar:", error);
                 
                 let errorMessage;
-                if (error.message.includes("api-key-not-valid")) {
+                if (error.message.includes("auth/configuration-not-found")) {
+                    errorMessage = "Error Crítico: Firebase: HABILITA 'Authentication' y el método 'Anónimo' en la Consola.";
+                } else if (error.message.includes("api-key-not-valid")) {
                     errorMessage = "Error Crítico: API Key inválida (Revisa tu configuración en Firebase).";
                 } else if (error.message.includes("network-request-failed")) {
                     errorMessage = "Error de red: No se pudo conectar a Firebase.";
-                } else if (error.message.includes("project-not-found")) {
-                    errorMessage = "Error: ID de proyecto no encontrado.";
                 } else {
                     errorMessage = `Error Crítico: ${error.message}`;
                 }
@@ -248,7 +248,7 @@
         // 2. Función para Agregar Punto
         function addGeoPoint(latitude, longitude) {
             if (!db) {
-                console.error("Firestore no inicializado.");
+                console.error("Firestore no inicializado o usuario no autenticado.");
                 return;
             }
 
@@ -268,7 +268,7 @@
                     console.error("Error al añadir documento:", error);
                     // Esto a menudo ocurre por un problema de reglas de seguridad
                     let errorMsg = error.message.includes('permission-denied') 
-                                ? 'Error de Permiso: Revisa las reglas de seguridad de Firestore.' 
+                                ? 'Error de Permiso: Revisa las reglas de seguridad de Firestore (deben permitir write: if request.auth != null).' 
                                 : `Error al registrar: ${error.message}`;
 
                     showMessage('error', errorMsg);
