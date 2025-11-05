@@ -121,6 +121,7 @@
         let userId = null;
         let isAuthReady = false;
         let markers = {}; // Para guardar los marcadores por ID de documento
+        let isFirebaseActive = false; // Nuevo: Flag para saber si Firebase está configurado
 
         // --- Utilidades ---
 
@@ -201,7 +202,6 @@
                             message = "Información de ubicación no disponible.";
                             break;
                         case error.TIMEOUT:
-                            // Aumentar el tiempo de espera a 10 segundos solo para la geolocalización manual
                             message = "Tiempo de espera agotado. Intenta de nuevo o haz clic en el mapa.";
                             break;
                         default:
@@ -331,7 +331,7 @@
             const icon = createLampIcon(data.type);
             const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
             const isOwner = data.userId === userId;
-            const userDisplay = isOwner ? 'Tú' : data.userId ? data.userId.substring(0, 4) + '...' : 'Anón.';
+            const userDisplay = isOwner ? 'Tú' : data.userId ? data.userId.substring(0, 8) : 'Anón.';
             
             const popupContent = `
                 <div class="space-y-1 text-sm">
@@ -360,6 +360,11 @@
          * Elimina un marcador del mapa y su entrada de Firestore.
          */
         async function deletePoint(id) {
+            if (!isFirebaseActive) {
+                showCustomModal("Error", "La base de datos no está activa. No se puede eliminar el punto.");
+                return;
+            }
+
             if (!db || !userId) {
                 showCustomModal("Error", "La base de datos no está inicializada o el usuario no está autenticado.");
                 return;
@@ -387,17 +392,15 @@
         }
 
         // Delegación de eventos para el botón de eliminar dentro del popup
-        if (map) {
-             map.on('popupopen', (e) => {
-                const deleteButton = e.popup.getElement().querySelector('.delete-btn');
-                if (deleteButton) {
-                    deleteButton.onclick = (event) => {
-                        const pointId = event.target.dataset.pointId;
-                        deletePoint(pointId);
-                    };
-                }
-            });
-        }
+        document.addEventListener('popupopen', (e) => {
+            const deleteButton = e.popup.getElement().querySelector('.delete-btn');
+            if (deleteButton) {
+                deleteButton.onclick = (event) => {
+                    const pointId = event.target.dataset.pointId;
+                    deletePoint(pointId);
+                };
+            }
+        });
         window.deletePoint = deletePoint; // Hacer accesible globalmente para el onclick en el popup
 
 
@@ -405,7 +408,7 @@
          * Escucha cambios en tiempo real en la colección de puntos.
          */
         function setupRealtimeListener() {
-            if (!db || !isAuthReady) return;
+            if (!isFirebaseActive || !db || !isAuthReady) return;
 
             const q = query(collection(db, getCollectionPath()));
 
@@ -438,8 +441,19 @@
          * Manejador del botón Guardar.
          */
         document.getElementById('btn-save').addEventListener('click', async () => {
+            const saveStatus = document.getElementById('save-status');
+            
+            if (!isFirebaseActive) {
+                saveStatus.textContent = 'Error: Base de datos no activa. No se puede guardar.';
+                saveStatus.className = 'text-sm text-red-500';
+                saveStatus.classList.remove('hidden');
+                return;
+            }
+
             if (!db || !userId) {
-                showCustomModal("Error", "Base de datos no inicializada. Intenta recargar la página.");
+                saveStatus.textContent = 'Error: Usuario no autenticado para guardar.';
+                saveStatus.className = 'text-sm text-red-500';
+                saveStatus.classList.remove('hidden');
                 return;
             }
 
@@ -447,7 +461,7 @@
             const lng = parseFloat(document.getElementById('input-lng').value);
             const type = document.getElementById('select-type').value;
             const notes = document.getElementById('input-notes').value.trim();
-            const saveStatus = document.getElementById('save-status');
+            
 
             if (isNaN(lat) || isNaN(lng) || !type) {
                 saveStatus.textContent = 'Por favor, completa las coordenadas y selecciona un tipo de lámpara.';
@@ -510,84 +524,89 @@
             const loadingOverlay = document.getElementById('loading-overlay');
             const appContainer = document.getElementById('app-container');
             const userIdDisplay = document.getElementById('user-id-display');
+            const authStatus = document.getElementById('auth-status');
             const geoStatus = document.getElementById('geo-status');
+            
+            // 1. Mostrar la aplicación (incluso si Firebase falla)
+            loadingOverlay.classList.add('opacity-0');
+            setTimeout(() => {
+                loadingOverlay.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                appContainer.classList.add('opacity-100');
+                if (map) {
+                    map.invalidateSize(); // ¡CLAVE para que Leaflet se dibuje!
+                }
+            }, 300);
 
-            if (Object.keys(firebaseConfig).length === 0) {
-                geoStatus.textContent = "Error: Configuración de Firebase faltante.";
-                geoStatus.className = 'text-xs font-medium text-red-500';
+            // 2. Revisar la configuración de Firebase
+            if (!firebaseConfig.projectId || firebaseConfig.projectId.length === 0) {
+                isFirebaseActive = false;
+                userId = 'NO_DB';
+                isAuthReady = true;
+                userIdDisplay.textContent = 'BD DESHABILITADA';
+                authStatus.className = 'text-xs font-medium text-orange-500';
+                geoStatus.textContent = "Advertencia: El guardado en la nube está deshabilitado por falta de configuración (projectId).";
+                geoStatus.className = 'text-xs font-medium text-orange-500';
+                console.warn("Firebase no inicializado: falta projectId.");
+                return;
             }
+            
+            // Si la configuración es válida, intentar inicializar
+            isFirebaseActive = true;
 
             try {
-                // 1. Inicializar Firebase
+                // 3. Inicializar Firebase y servicios
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // 2. Autenticación
+                // 4. Autenticación
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                // 3. Listener de estado de autenticación (Se dispara después de signIn)
+                // 5. Listener de estado de autenticación
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
                         isAuthReady = true;
                         userIdDisplay.textContent = userId.substring(0, 8) + '...';
-                        
+                        authStatus.className = 'text-xs font-medium text-green-600';
                         setupRealtimeListener();
 
                     } else {
                         userId = crypto.randomUUID();
                         isAuthReady = true;
                         userIdDisplay.textContent = `Anónimo (${userId.substring(0, 8)}...)`;
-
+                        authStatus.className = 'text-xs font-medium text-gray-500';
                         setupRealtimeListener();
                     }
                 });
 
-                // 4. Mostrar la aplicación y ocultar el overlay
-                loadingOverlay.classList.add('opacity-0');
-                setTimeout(() => {
-                    loadingOverlay.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                    appContainer.classList.add('opacity-100');
-                    // *** ¡FORZAR EL REDIBUJO DEL MAPA! (CLAVE) ***
-                    if (map) {
-                        map.invalidateSize();
-                    }
-                }, 300);
-
-
             } catch (error) {
                 console.error("Error al inicializar Firebase o autenticar:", error);
                 
-                let errorMessage;
+                isFirebaseActive = false;
+                userId = 'NO_DB';
+                isAuthReady = true; // Marca como listo para que el mapa funcione
+                userIdDisplay.textContent = 'ERROR BD';
+                authStatus.className = 'text-xs font-medium text-red-500';
+                
+                let errorMessage = `Error Crítico: ${error.message}. Guardado deshabilitado.`;
                 if (error.message.includes("auth/configuration-not-found")) {
-                    errorMessage = "Error Crítico: HABILITA 'Authentication' y 'Anónimo'.";
-                } else {
-                    errorMessage = `Error Crítico: ${error.message}`;
+                    errorMessage = "Error Crítico: HABILITA 'Authentication' y 'Anónimo'. Guardado deshabilitado.";
                 }
                     
                 geoStatus.textContent = errorMessage;
                 geoStatus.className = 'text-xs font-medium text-red-500';
-                
-                // Asegurar que el overlay se quite incluso con errores
-                loadingOverlay.classList.add('opacity-0');
-                setTimeout(() => {
-                    loadingOverlay.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                    appContainer.classList.add('opacity-100');
-                    if (map) { map.invalidateSize(); } 
-                }, 300);
             }
         }
 
         // --- Ejecución Principal ---
 
-        // 1. Inicializar el mapa inmediatamente (ANTES de que el contenedor sea visible)
+        // 1. Inicializar el mapa
         initializeMap();
 
         // 2. Iniciar la aplicación y la autenticación de Firebase
