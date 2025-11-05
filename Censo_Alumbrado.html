@@ -4,23 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Censo de Alumbrado Público</title>
-    <!-- Carga de Tailwind CSS para estilos rápidos y responsivos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Personalización de la fuente Inter */
         :root {
             font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para el ícono de carga */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-8">
 
+    <!-- EL LOADING OVERLAY SE QUEDA FIJO HASTA QUE LA AUTENTICACIÓN TERMINE -->
     <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
         <div class="text-white text-lg font-semibold flex items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <div class="loader mr-3"></div>
             Cargando servicios de autenticación...
         </div>
     </div>
@@ -28,13 +37,11 @@
     <div id="app-container" class="max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 sm:p-10 transition-all duration-300 opacity-0 hidden">
         <h1 class="text-3xl font-extrabold text-blue-800 mb-6 border-b pb-2">Censo Digital de Alumbrado Público</h1>
         
-        <!-- Muestra el ID de Usuario (requerido para apps colaborativas) -->
         <div id="user-info" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-            <p>ID de la App: <span id="app-id" class="font-mono text-gray-700"></span></p>
+            <p>ID de la App: <span id="app-id" class="font-mono text-gray-700">Cargando...</span></p>
             <p>Tu ID de Usuario: <span id="user-id" class="font-mono text-gray-700">Cargando...</span></p>
         </div>
 
-        <!-- Sección de Captura de Punto -->
         <div class="mb-8 p-6 bg-gray-50 border rounded-lg shadow-inner">
             <h2 class="text-xl font-semibold text-gray-700 mb-4">Registrar Nuevo Punto</h2>
             <button id="add-point-btn" class="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition duration-150 ease-in-out flex items-center justify-center" disabled>
@@ -44,16 +51,16 @@
             <p id="geo-status" class="mt-3 text-sm text-red-500"></p>
         </div>
 
-        <!-- Sección de Puntos Registrados -->
         <div>
             <h2 class="text-xl font-semibold text-gray-700 mb-4">Puntos de Alumbrado Registrados (Tiempo Real)</h2>
             <p id="points-count" class="text-sm text-gray-500 mb-4">Total de puntos: 0</p>
             <div id="points-list" class="space-y-3">
-                <!-- Los puntos registrados se insertarán aquí -->
                 <p class="text-gray-500 italic" id="no-points-message">No hay puntos registrados aún. ¡Sé el primero!</p>
             </div>
         </div>
-
+        
+        <!-- Contenedor para mensajes de error o éxito personalizados -->
+        <div id="message-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
     </div>
 
     <!-- Script de Firebase y lógica del Censo -->
@@ -63,15 +70,20 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuración de Firebase - Utilizando variables globales
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // =========================================================================
+        // CONFIGURACIÓN PARA ENTORNO CANVAS: Usa variables globales
+        // Estas variables son inyectadas por el sistema y deben ser usadas.
+        // =========================================================================
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
 
         let app;
         let db;
         let auth;
         let userId = 'anonymous';
 
+        // Elementos del DOM
         const loadingOverlay = document.getElementById('loading-overlay');
         const appContainer = document.getElementById('app-container');
         const userIdSpan = document.getElementById('user-id');
@@ -82,40 +94,75 @@
         const pointsCount = document.getElementById('points-count');
         const noPointsMessage = document.getElementById('no-points-message');
 
+        // Función para mostrar mensajes personalizados (reemplazo de alert/confirm)
+        function showMessage(type, message) {
+            const container = document.getElementById('message-container');
+            const colorClasses = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+
+            const div = document.createElement('div');
+            div.className = `${colorClasses[type]} text-white p-3 rounded-lg shadow-lg max-w-xs transition-opacity duration-300 opacity-0`;
+            div.textContent = message;
+            
+            container.appendChild(div);
+            
+            // Animación de entrada
+            setTimeout(() => div.classList.add('opacity-100'), 10);
+
+            // Animación de salida y remoción
+            setTimeout(() => {
+                div.classList.remove('opacity-100');
+                div.classList.add('opacity-0');
+                setTimeout(() => div.remove(), 300);
+            }, 5000);
+        }
+
         // Función de inicialización
         async function initializeFirebase() {
             try {
-                // Habilitar logs para debugging (opcional, pero útil)
-                setLogLevel('debug');
+                if (!firebaseConfig) {
+                    throw new Error("Configuración de Firebase no disponible.");
+                }
+                
+                setLogLevel('debug'); // Útil para ver logs de Firebase en la consola
 
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                
+                appIdSpan.textContent = appId;
 
-                // 1. Manejo de Autenticación
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+
+                // Lógica de autenticación: Usar token custom si está disponible, sino anónimo
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
+
                 
                 // Esperar a que el estado de autenticación cambie
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        userId = user.uid;
+                        userId = user.uid; 
                         userIdSpan.textContent = userId;
                         addPointBtn.disabled = false;
                         geoStatus.textContent = "Listo para capturar puntos.";
+                        geoStatus.classList.remove('text-red-500');
+                        geoStatus.classList.add('text-green-600');
                         
-                        // Inicializar el listener de Firestore solo después de la autenticación
                         listenForGeoPoints();
                     } else {
-                        userIdSpan.textContent = 'No autenticado';
+                        userIdSpan.textContent = 'NO AUTENTICADO';
                         addPointBtn.disabled = true;
-                        geoStatus.textContent = "Error de autenticación. No se puede capturar.";
+                        geoStatus.textContent = "Error: La sesión no se pudo establecer. Verifica tus reglas de seguridad.";
+                        geoStatus.classList.remove('text-green-600');
+                        geoStatus.classList.add('text-red-500');
                     }
 
-                    appIdSpan.textContent = appId;
                     // Ocultar overlay y mostrar app
                     loadingOverlay.classList.add('opacity-0');
                     setTimeout(() => {
@@ -127,19 +174,30 @@
 
             } catch (error) {
                 console.error("Error al inicializar Firebase o autenticar:", error);
-                geoStatus.textContent = `Error crítico: ${error.message}`;
+                const errorMessage = error.message.includes("api-key-not-valid") 
+                    ? "Error Crítico: API Key inválida (Revisa tu configuración en Firebase)."
+                    : `Error Crítico: ${error.message}`;
+                    
+                geoStatus.textContent = errorMessage;
                 addPointBtn.disabled = true;
+                
+                // Asegurar que el overlay se quite incluso con errores
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingOverlay.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    appContainer.classList.add('opacity-100');
+                }, 300);
             }
         }
 
         /**
-         * FUNCIÓN CRÍTICA CORREGIDA: Construye la referencia de la colección.
-         * Colección pública (5 segmentos, impar): artifacts/{appId}/public/data/geo_points
+         * FUNCIÓN CRÍTICA: Construye la referencia de la colección para datos PÚBLICOS.
+         * Colección pública: artifacts/{appId}/public/data/geo_points
          */
         function getGeoPointsCollectionRef() {
-            // El nombre de la colección es 'geo_points'
-            const collectionPath = `artifacts/${appId}/public/data/geo_points`;
-            console.log("Ruta de Colección Usada (Debe ser impar):", collectionPath);
+            // Se usa el appId inyectado por el sistema
+            const collectionPath = `artifacts/${appId}/public/data/geo_points`; 
             return collection(db, collectionPath);
         }
 
@@ -155,17 +213,16 @@
                 lng: longitude,
                 timestamp: serverTimestamp(),
                 capturedBy: userId,
-                // Agrega cualquier otro campo relevante para el censo aquí (e.g., tipo de luminaria)
             };
 
             addDoc(getGeoPointsCollectionRef(), geoData)
                 .then(() => {
+                    showMessage('success', `¡Punto registrado! Lat: ${latitude.toFixed(4)}`);
                     geoStatus.textContent = `Punto registrado en: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}.`;
-                    geoStatus.classList.remove('text-red-500');
-                    geoStatus.classList.add('text-green-600');
                 })
                 .catch(error => {
                     console.error("Error al añadir documento:", error);
+                    showMessage('error', `Error al registrar: ${error.message}`);
                     geoStatus.textContent = `Error al registrar el punto: ${error.message}`;
                     geoStatus.classList.remove('text-green-600');
                     geoStatus.classList.add('text-red-500');
@@ -187,14 +244,14 @@
 
             }, (error) => {
                 console.error("Error en onSnapshot:", error);
-                // Mostrar error al usuario
+                showMessage('error', `Error de conexión en tiempo real: ${error.message}`);
                 geoStatus.textContent = `Error de conexión en tiempo real: ${error.message}`;
             });
         }
         
         // 4. Renderizado de Puntos
         function renderPointsList(points) {
-            pointsList.innerHTML = ''; // Limpiar lista
+            pointsList.innerHTML = ''; 
             
             if (points.length === 0) {
                 noPointsMessage.classList.remove('hidden');
@@ -203,17 +260,18 @@
             }
             noPointsMessage.classList.add('hidden');
 
-
-            // Ordenar por timestamp descendente para ver los más recientes primero
             points.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
             points.forEach(point => {
                 const timeStr = point.timestamp ? new Date(point.timestamp.toDate()).toLocaleString('es-MX') : 'Cargando...';
+                // Para evitar mostrar todo el ID largo, mostramos solo una parte.
+                const displayId = point.capturedBy.length > 15 ? point.capturedBy.substring(0, 8) + '...' : point.capturedBy; 
+                
                 const div = document.createElement('div');
                 div.className = 'p-4 border border-gray-200 bg-white rounded-lg shadow-sm hover:shadow-md transition duration-150';
                 div.innerHTML = `
                     <p class="text-gray-900 font-medium">Coordenadas: <span class="font-mono text-sm text-blue-600">${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}</span></p>
-                    <p class="text-xs text-gray-500 mt-1">Registrado por: ${point.capturedBy}</p>
+                    <p class="text-xs text-gray-500 mt-1">Registrado por: ${displayId}</p>
                     <p class="text-xs text-gray-500">Hora: ${timeStr}</p>
                 `;
                 pointsList.appendChild(div);
@@ -235,6 +293,7 @@
                         addPointBtn.disabled = false;
                     },
                     (error) => {
+                        showMessage('error', `Permiso de ubicación denegado o error: ${error.message}`);
                         geoStatus.textContent = `Error de Geo-localización: ${error.message}. Asegúrate de permitir el acceso.`;
                         addPointBtn.disabled = false;
                         console.error(error);
@@ -242,6 +301,7 @@
                     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                 );
             } else {
+                showMessage('error', "El navegador no soporta Geo-localización.");
                 geoStatus.textContent = "El navegador no soporta Geo-localización.";
             }
         });
