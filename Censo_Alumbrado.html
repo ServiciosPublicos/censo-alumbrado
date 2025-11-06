@@ -46,9 +46,21 @@
     <div id="app-container" class="max-w-6xl mx-auto bg-white shadow-xl rounded-xl p-6 sm:p-10 transition-all duration-300 opacity-0 hidden">
         
         <div style="background-color: #f68628; margin: -2.5rem -2.5rem 1.5rem -2.5rem; padding: 2.5rem 2.5rem 1.5rem 2.5rem; border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem;">
-            <h1 class="text-3xl font-extrabold text-white pb-2">Censo Digital de Alumbrado Público</h1>
+            
+            <div class="flex items-center justify-between relative">
+                
+                <div class="w-12 h-12 flex items-center justify-center bg-white rounded-lg p-2 shadow-md z-10">
+                    <img src="https://i.imgur.com/i2yhcZU.png" alt="Logo" class="w-12 h-12 object-contain p-1 bg-white rounded-lg shadow-md z-10" />
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-white absolute inset-x-0 text-center pb-2 pointer-events-none">
+                    Censo Digital de Alumbrado Público
+                </h1>
+
+                <div class="w-12 h-12">
+                    </div>
+            </div>
+            
         </div>
-        
         <div id="user-info" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex justify-between items-center">
             <div>
                 <p>ID de la App: <span id="app-id" class="font-mono text-gray-700">Cargando...</span></p>
@@ -173,15 +185,15 @@
         };
         const FALLBACK_APP_DATA_ID = "censo-alumbrado-publico-v1";
         
-        // Variables globales (Corrección: Declaradas en el scope superior del módulo)
+        // Variables globales
         let map;
-        let mapMarker; // Marcador del punto a registrar
-        let app;       // INSTANCIA DE FIREBASE
-        let db;        // INSTANCIA DE FIRESTORE
-        let auth;      // INSTANCIA DE AUTH
+        let mapMarker; 
+        let app;       
+        let db;        
+        let auth;      
         let userId = 'anonymous';
         let appId = FALLBACK_APP_DATA_ID;
-        let pointsCache = []; // Cache para guardar los puntos traídos de Firestore
+        let pointsCache = []; 
 
         // Coordenadas iniciales (Centro de México, por ejemplo)
         const DEFAULT_COORDS = [19.4326, -99.1332]; 
@@ -265,7 +277,7 @@
         function getGeoPointsCollectionRef() {
             // Colección pública: artifacts/{appId}/public/data/geo_points
             const collectionPath = `artifacts/${appId}/public/data/geo_points`; 
-            // **IMPORTANTE: 'db' ahora está definido globalmente, así que es seguro usarlo aquí.**
+            // 'db' está definido globalmente
             return collection(db, collectionPath);
         }
 
@@ -274,7 +286,7 @@
         // =========================================================================
 
         function initializeMap() {
-            if (map) map.remove(); // Asegura que solo haya una instancia
+            if (map) map.remove(); 
 
             map = L.map('map-container').setView(DEFAULT_COORDS, 13);
             
@@ -310,14 +322,14 @@
             mapMarker.setLatLng(latLng);
             inputLat.value = lat.toFixed(6);
             inputLng.value = lng.toFixed(6);
-            savePointBtn.disabled = false; // Habilitar el guardado al tener coordenadas
+            savePointBtn.disabled = false; 
             
             if (centerMap) {
                 map.setView(latLng, 15);
             }
         }
         
-        // Botón para usar la ubicación actual (siempre es útil como opción rápida)
+        // Botón para usar la ubicación actual
         locateMeBtn.addEventListener('click', () => {
             geoStatus.textContent = "Obteniendo ubicación...";
             geoStatus.className = 'text-xs font-medium text-red-500';
@@ -493,7 +505,6 @@
                 
                 // Al abrir el popup, adjuntar listeners a los botones
                 marker.on('popupopen', () => {
-                    // Nota: Usamos delegación o buscamos los botones recién creados
                     document.querySelector(`.map-edit-btn[data-id="${point.id}"]`).addEventListener('click', () => handleEditClick(null, point.id));
                     document.querySelector(`.map-delete-btn[data-id="${point.id}"]`).addEventListener('click', () => handleDeleteClick(null, point.id));
                 });
