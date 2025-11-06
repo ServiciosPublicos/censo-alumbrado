@@ -701,6 +701,12 @@
                         loadingOverlay.classList.add('hidden');
                         appContainer.classList.remove('hidden');
                         appContainer.classList.add('opacity-100');
+
+                        // 💡 SOLUCIÓN: Forzar el redibujo del mapa después de mostrar el contenedor
+    if (map) {
+        map.invalidateSize();
+    }
+                        
                     }, 300);
                 });
 
