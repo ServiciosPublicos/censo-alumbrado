@@ -44,81 +44,84 @@
     </div>
 
         <div id="app-container" class="max-w-6xl mx-auto shadow-xl rounded-xl p-6 sm:p-10 transition-all duration-300 opacity-0 hidden" style="background-color: #f68628;">
-        <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-white pb-2">Censo Digital de Alumbrado Público</h1>
+        
+                <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-white pb-2">Censo Digital de Alumbrado Público</h1>
         
-        <div id="user-info" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex justify-between items-center">
-            <div>
-                <p>ID de la App: <span id="app-id" class="font-mono text-gray-700">Cargando...</span></p>
-                <p>Tu ID de Usuario: <span id="user-id" class="font-mono text-gray-700">Cargando...</span></p>
-            </div>
-            <p id="geo-status" class="text-xs font-medium text-green-600">Listo para operar.</p>
-        </div>
-
-                <div class="mb-8 p-6 bg-gray-50 border rounded-lg shadow-inner">
-            <h2 class="text-xl font-semibold text-gray-700 mb-4">
-                Registrar Nuevo Punto <span class="text-sm font-normal text-gray-500">(Clic en el mapa o arrastra el marcador rojo)</span>
-            </h2>
-
-                        <div id="map-container" class="mb-4"></div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label for="input-lat" class="block text-sm font-medium text-gray-700">Latitud</label>
-                    <input type="text" id="input-lat" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-white cursor-default">
-                </div>
-                <div>
-                    <label for="input-lng" class="block text-sm font-medium text-gray-700">Longitud</label>
-                    <input type="text" id="input-lng" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-white cursor-default">
-                </div>
-            </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label for="input-lamp-type" class="block text-sm font-medium text-gray-700">Tipo de Lámpara</label>
-                    <select id="input-lamp-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        <option value="" disabled selected>Selecciona un tipo</option>
-                        <option value="LED">LED</option>
-                        <option value="Sodio">Sodio (Vapor)</option>
-                        <option value="Mercurio">Mercurio</option>
-                        <option value="Otro">Otro/Desconocido</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="input-observations" class="block text-sm font-medium text-gray-700">Observaciones</label>
-                    <input type="text" id="input-observations" placeholder="Estado, fallas, etc." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                </div>
-            </div>
-
-            <div class="flex space-x-4">
-                <button id="save-point-btn" class="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-blue-300" disabled>
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                    Guardar Punto
-                </button>
-                <button id="locate-me-btn" class="px-4 py-2 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition duration-150 ease-in-out disabled:bg-gray-300">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Mi Ubicación
-                </button>
-            </div>
+                <div class="p-6 -m-6 bg-white rounded-b-xl">
             
-            <p class="mt-4 text-xs text-gray-600 italic">El marcador rojo en el mapa indica la ubicación actual del punto a registrar.</p>
-        </div>
-
+            <div id="user-info" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex justify-between items-center">
                 <div>
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-white">Puntos de Alumbrado Registrados (Tiempo Real)</h2>
-                <button id="export-csv-btn" class="px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-lg shadow hover:bg-green-600 transition disabled:bg-green-300" disabled>
-                    <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Exportar a CSV
-                </button>
+                    <p>ID de la App: <span id="app-id" class="font-mono text-gray-700">Cargando...</span></p>
+                    <p>Tu ID de Usuario: <span id="user-id" class="font-mono text-gray-700">Cargando...</span></p>
+                </div>
+                <p id="geo-status" class="text-xs font-medium text-green-600">Listo para operar.</p>
             </div>
-            
-            <p id="points-count" class="text-sm text-gray-200 mb-4">Total de puntos: 0</p>
-            <div id="points-list" class="space-y-3">
-                <p class="text-gray-200 italic" id="no-points-message">No hay puntos registrados aún. ¡Sé el primero!</p>
+
+                        <div class="mb-8 p-6 bg-gray-50 border rounded-lg shadow-inner">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">
+                    Registrar Nuevo Punto <span class="text-sm font-normal text-gray-500">(Clic en el mapa o arrastra el marcador rojo)</span>
+                </h2>
+
+                                <div id="map-container" class="mb-4"></div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="input-lat" class="block text-sm font-medium text-gray-700">Latitud</label>
+                        <input type="text" id="input-lat" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-white cursor-default">
+                    </div>
+                    <div>
+                        <label for="input-lng" class="block text-sm font-medium text-gray-700">Longitud</label>
+                        <input type="text" id="input-lng" readonly class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-white cursor-default">
+                    </div>
+                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="input-lamp-type" class="block text-sm font-medium text-gray-700">Tipo de Lámpara</label>
+                        <select id="input-lamp-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="" disabled selected>Selecciona un tipo</option>
+                            <option value="LED">LED</option>
+                            <option value="Sodio">Sodio (Vapor)</option>
+                            <option value="Mercurio">Mercurio</option>
+                            <option value="Otro">Otro/Desconocido</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="input-observations" class="block text-sm font-medium text-gray-700">Observaciones</label>
+                        <input type="text" id="input-observations" placeholder="Estado, fallas, etc." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button id="save-point-btn" class="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-blue-300" disabled>
+                        <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Guardar Punto
+                    </button>
+                    <button id="locate-me-btn" class="px-4 py-2 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition duration-150 ease-in-out disabled:bg-gray-300">
+                        <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Mi Ubicación
+                    </button>
+                </div>
+                
+                <p class="mt-4 text-xs text-gray-600 italic">El marcador rojo en el mapa indica la ubicación actual del punto a registrar.</p>
+            </div>
+
+                        <div>
+                <div class="flex justify-between items-center mb-4">
+                                        <h2 class="text-xl font-semibold text-gray-700">Puntos de Alumbrado Registrados (Tiempo Real)</h2>
+                    <button id="export-csv-btn" class="px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-lg shadow hover:bg-green-600 transition disabled:bg-green-300" disabled>
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Exportar a CSV
+                    </button>
+                </div>
+                
+                                <p id="points-count" class="text-sm text-gray-600 mb-4">Total de puntos: 0</p>
+                <div id="points-list" class="space-y-3">
+                    <p class="text-gray-600 italic" id="no-points-message">No hay puntos registrados aún. ¡Sé el primero!</p>
+                </div>
             </div>
         </div>
-        
-                <div id="message-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+                        <div id="message-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
 
     </div>
 
