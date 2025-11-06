@@ -109,7 +109,7 @@
                     Guardar Punto
                 </button>
                 <button id="locate-me-btn" class="px-4 py-2 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition duration-150 ease-in-out disabled:bg-gray-300">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     Mi Ubicación
                 </button>
             </div>
@@ -244,17 +244,17 @@
         const inputLat = document.getElementById('input-lat');
         const inputLng = document.getElementById('input-lng');
         const inputLampType = document.getElementById('input-lamp-type');
-        const inputFolio = document.getElementById('input-folio'); // CAMBIO: Nuevo campo Folio
-        const inputEstado = document.getElementById('input-estado'); // CAMBIO: Nuevo campo Estado
-        const inputQR = document.getElementById('input-qr'); // CAMBIO: Nuevo campo QR
+        const inputFolio = document.getElementById('input-folio'); 
+        const inputEstado = document.getElementById('input-estado'); 
+        const inputQR = document.getElementById('input-qr'); 
 
         // Modal de Edición
         const editModal = document.getElementById('edit-modal');
         const editCoords = document.getElementById('edit-coords');
         const editLampType = document.getElementById('edit-lamp-type');
-        const editFolio = document.getElementById('edit-folio'); // CAMBIO: Nuevo campo Folio
-        const editEstado = document.getElementById('edit-estado'); // CAMBIO: Nuevo campo Estado
-        const editQR = document.getElementById('edit-qr'); // CAMBIO: Nuevo campo QR
+        const editFolio = document.getElementById('edit-folio'); 
+        const editEstado = document.getElementById('edit-estado'); 
+        const editQR = document.getElementById('edit-qr'); 
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const modalSaveBtn = document.getElementById('modal-save-btn');
 
@@ -410,13 +410,12 @@
             addDoc(getGeoPointsCollectionRef(), geoData)
                 .then(() => {
                     showMessage('success', `¡Punto registrado! Folio: ${folio || 'N/A'}`);
-                    // Limpiar formulario y restablecer mapa a default después de guardar
+                    // 🛑 CORRECCIÓN APLICADA: Solo limpiamos los campos del formulario de metadatos.
+                    // NO reiniciamos la posición del mapa para que el usuario pueda seguir censando en la misma zona.
                     inputLampType.value = '';
-                    inputFolio.value = ''; // Limpiar Folio
-                    inputEstado.value = ''; // Limpiar Estado
-                    inputQR.value = ''; // Limpiar QR
-                    updateMarkerPosition(DEFAULT_COORDS[0], DEFAULT_COORDS[1]);
-                    map.setView(DEFAULT_COORDS, 13);
+                    inputFolio.value = ''; 
+                    inputEstado.value = ''; 
+                    inputQR.value = ''; 
                     savePointBtn.disabled = false;
                 })
                 .catch(error => {
@@ -550,9 +549,9 @@
             // Llenar el modal con los datos actuales
             editCoords.textContent = `${pointToEdit.lat.toFixed(6)}, ${pointToEdit.lng.toFixed(6)}`;
             editLampType.value = pointToEdit.lampType;
-            editFolio.value = pointToEdit.folio || ''; // Llenar Folio
-            editEstado.value = pointToEdit.estado || ''; // Llenar Estado
-            editQR.value = pointToEdit.qr || ''; // Llenar QR
+            editFolio.value = pointToEdit.folio || ''; 
+            editEstado.value = pointToEdit.estado || ''; 
+            editQR.value = pointToEdit.qr || ''; 
             
             // Guardar el ID en el botón de guardar del modal
             modalSaveBtn.dataset.id = pointId;
@@ -653,9 +652,9 @@
                     sanitize(point.lat),
                     sanitize(point.lng),
                     sanitize(point.lampType),
-                    sanitize(point.folio), // Campo Folio
-                    sanitize(point.estado), // Campo Estado
-                    sanitize(point.qr), // Campo QR
+                    sanitize(point.folio), 
+                    sanitize(point.estado), 
+                    sanitize(point.qr), 
                     sanitize(point.capturedBy),
                     sanitize(timestamp),
                     sanitize(point.lastEditedBy || 'N/A'),
