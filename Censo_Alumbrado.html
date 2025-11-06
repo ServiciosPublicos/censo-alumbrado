@@ -78,11 +78,12 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
-                    <label for="input-lamp-type" class="block text-sm font-medium text-gray-700">Tipo de Lámpara</label>
+                    <label for="input-lamp-type" class="block text-sm font-medium text-gray-700">Tipo</label>
                     <select id="input-lamp-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         <option value="" disabled selected>Selecciona un tipo</option>
+                        <option value="Poste">Poste</option>
                         <option value="LED">LED</option>
                         <option value="Sodio">Sodio (Vapor)</option>
                         <option value="Mercurio">Mercurio</option>
@@ -90,18 +91,25 @@
                     </select>
                 </div>
                 <div>
-                    <label for="input-observations" class="block text-sm font-medium text-gray-700">Observaciones</label>
-                    <input type="text" id="input-observations" placeholder="Estado, fallas, etc." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <label for="input-folio" class="block text-sm font-medium text-gray-700">Folio</label>
+                    <input type="text" id="input-folio" placeholder="Número de folio" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="input-estado" class="block text-sm font-medium text-gray-700">Estado</label>
+                    <input type="text" id="input-estado" placeholder="Funcional, Dañado, etc." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="input-qr" class="block text-sm font-medium text-gray-700">QR</label>
+                    <input type="text" id="input-qr" placeholder="ID QR" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                 </div>
             </div>
-
             <div class="flex space-x-4">
                 <button id="save-point-btn" class="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-blue-300" disabled>
                     <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                     Guardar Punto
                 </button>
                 <button id="locate-me-btn" class="px-4 py-2 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition duration-150 ease-in-out disabled:bg-gray-300">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.244-4.243a8 8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     Mi Ubicación
                 </button>
             </div>
@@ -136,17 +144,26 @@
                 <p id="edit-coords" class="mt-1 p-2 bg-gray-100 rounded-md font-mono text-sm"></p>
             </div>
             <div class="mb-4">
-                <label for="edit-lamp-type" class="block text-sm font-medium text-gray-700">Tipo de Lámpara</label>
+                <label for="edit-lamp-type" class="block text-sm font-medium text-gray-700">Tipo</label>
                 <select id="edit-lamp-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    <option value="Poste">Poste</option>
                     <option value="LED">LED</option>
                     <option value="Sodio">Sodio (Vapor)</option>
                     <option value="Mercurio">Mercurio</option>
                     <option value="Otro">Otro/Desconocido</option>
                 </select>
             </div>
+            <div class="mb-4">
+                <label for="edit-folio" class="block text-sm font-medium text-gray-700">Folio</label>
+                <input type="text" id="edit-folio" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+            </div>
+            <div class="mb-4">
+                <label for="edit-estado" class="block text-sm font-medium text-gray-700">Estado</label>
+                <input type="text" id="edit-estado" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+            </div>
             <div class="mb-6">
-                <label for="edit-observations" class="block text-sm font-medium text-gray-700">Observaciones</label>
-                <input type="text" id="edit-observations" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                <label for="edit-qr" class="block text-sm font-medium text-gray-700">QR</label>
+                <input type="text" id="edit-qr" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
             </div>
             <div class="flex justify-end space-x-3">
                 <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
@@ -227,13 +244,17 @@
         const inputLat = document.getElementById('input-lat');
         const inputLng = document.getElementById('input-lng');
         const inputLampType = document.getElementById('input-lamp-type');
-        const inputObservations = document.getElementById('input-observations');
+        const inputFolio = document.getElementById('input-folio'); // CAMBIO: Nuevo campo Folio
+        const inputEstado = document.getElementById('input-estado'); // CAMBIO: Nuevo campo Estado
+        const inputQR = document.getElementById('input-qr'); // CAMBIO: Nuevo campo QR
 
         // Modal de Edición
         const editModal = document.getElementById('edit-modal');
         const editCoords = document.getElementById('edit-coords');
         const editLampType = document.getElementById('edit-lamp-type');
-        const editObservations = document.getElementById('edit-observations');
+        const editFolio = document.getElementById('edit-folio'); // CAMBIO: Nuevo campo Folio
+        const editEstado = document.getElementById('edit-estado'); // CAMBIO: Nuevo campo Estado
+        const editQR = document.getElementById('edit-qr'); // CAMBIO: Nuevo campo QR
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const modalSaveBtn = document.getElementById('modal-save-btn');
 
@@ -361,10 +382,14 @@
             const lat = parseFloat(inputLat.value);
             const lng = parseFloat(inputLng.value);
             const lampType = inputLampType.value.trim();
-            const observations = inputObservations.value.trim();
             
+            // OBTENER NUEVOS CAMPOS
+            const folio = inputFolio.value.trim();
+            const estado = inputEstado.value.trim();
+            const qr = inputQR.value.trim();
+
             if (isNaN(lat) || isNaN(lng) || !lampType) {
-                showMessage('error', 'Por favor, selecciona un punto en el mapa y el Tipo de Lámpara.');
+                showMessage('error', 'Por favor, selecciona un punto en el mapa y el Tipo.');
                 return;
             }
             
@@ -372,7 +397,11 @@
                 lat: lat,
                 lng: lng,
                 lampType: lampType,
-                observations: observations,
+                // GUARDAR NUEVOS CAMPOS
+                folio: folio,
+                estado: estado,
+                qr: qr,
+                // FIN NUEVOS CAMPOS
                 timestamp: serverTimestamp(),
                 capturedBy: userId,
             };
@@ -380,10 +409,12 @@
             savePointBtn.disabled = true;
             addDoc(getGeoPointsCollectionRef(), geoData)
                 .then(() => {
-                    showMessage('success', `¡Punto registrado! Lat: ${lat.toFixed(4)}`);
+                    showMessage('success', `¡Punto registrado! Folio: ${folio || 'N/A'}`);
                     // Limpiar formulario y restablecer mapa a default después de guardar
                     inputLampType.value = '';
-                    inputObservations.value = '';
+                    inputFolio.value = ''; // Limpiar Folio
+                    inputEstado.value = ''; // Limpiar Estado
+                    inputQR.value = ''; // Limpiar QR
                     updateMarkerPosition(DEFAULT_COORDS[0], DEFAULT_COORDS[1]);
                     map.setView(DEFAULT_COORDS, 13);
                     savePointBtn.disabled = false;
@@ -444,7 +475,7 @@
                 div.innerHTML = `
                     <div>
                         <p class="text-gray-900 font-medium">Latitud: <span class="font-mono text-sm text-blue-600">${point.lat.toFixed(6)}</span>, Longitud: <span class="font-mono text-sm text-blue-600">${point.lng.toFixed(6)}</span></p>
-                        <p class="text-sm mt-1">Lámpara: <span class="font-semibold">${point.lampType}</span> | Obs: ${point.observations || 'N/A'}</p>
+                        <p class="text-sm mt-1">Tipo: <span class="font-semibold">${point.lampType}</span> | Folio: ${point.folio || 'N/A'} | Estado: ${point.estado || 'N/A'} | QR: ${point.qr || 'N/A'}</p>
                         <p class="text-xs text-gray-500 mt-1">Reg. por: ${displayId} | Hora: ${timeStr}</p>
                     </div>
                     <div class="flex space-x-2">
@@ -485,8 +516,10 @@
                 // Popup con información y botón de edición/borrado
                 const popupContent = `
                     <p class="font-bold text-sm">Punto #${point.id.substring(0, 5)}</p>
-                    <p class="text-xs">Lámpara: ${point.lampType}</p>
-                    <p class="text-xs">Obs: ${point.observations || 'N/A'}</p>
+                    <p class="text-xs">Tipo: ${point.lampType}</p>
+                    <p class="text-xs">Folio: ${point.folio || 'N/A'}</p>
+                    <p class="text-xs">Estado: ${point.estado || 'N/A'}</p>
+                    <p class="text-xs">QR: ${point.qr || 'N/A'}</p>
                     <hr class="my-1">
                     <button data-id="${point.id}" class="map-edit-btn text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition mr-2">Editar</button>
                     <button data-id="${point.id}" class="map-delete-btn text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition">Borrar</button>
@@ -514,10 +547,12 @@
                 return;
             }
             
-            // Llenar el modal
+            // Llenar el modal con los datos actuales
             editCoords.textContent = `${pointToEdit.lat.toFixed(6)}, ${pointToEdit.lng.toFixed(6)}`;
             editLampType.value = pointToEdit.lampType;
-            editObservations.value = pointToEdit.observations || '';
+            editFolio.value = pointToEdit.folio || ''; // Llenar Folio
+            editEstado.value = pointToEdit.estado || ''; // Llenar Estado
+            editQR.value = pointToEdit.qr || ''; // Llenar QR
             
             // Guardar el ID en el botón de guardar del modal
             modalSaveBtn.dataset.id = pointId;
@@ -535,10 +570,14 @@
         modalSaveBtn.addEventListener('click', () => {
             const pointId = modalSaveBtn.dataset.id;
             const updatedLampType = editLampType.value.trim();
-            const updatedObservations = editObservations.value.trim();
+            
+            // OBTENER VALORES ACTUALIZADOS DE LOS NUEVOS CAMPOS DEL MODAL
+            const updatedFolio = editFolio.value.trim();
+            const updatedEstado = editEstado.value.trim();
+            const updatedQR = editQR.value.trim();
             
             if (!updatedLampType) {
-                showMessage('error', 'El Tipo de Lámpara no puede estar vacío.');
+                showMessage('error', 'El campo Tipo no puede estar vacío.');
                 return;
             }
 
@@ -546,7 +585,11 @@
             
             updateDoc(pointRef, {
                 lampType: updatedLampType,
-                observations: updatedObservations,
+                // ACTUALIZAR NUEVOS CAMPOS
+                folio: updatedFolio,
+                estado: updatedEstado,
+                qr: updatedQR,
+                // FIN NUEVOS CAMPOS
                 lastEditedBy: userId,
                 lastEditedAt: serverTimestamp()
             })
@@ -588,9 +631,9 @@
                 return;
             }
             
-            // 1. Definir encabezados (Headers)
+            // 1. Definir encabezados (Headers) - ACTUALIZADOS
             const headers = [
-                "ID", "Latitud", "Longitud", "Tipo de Lámpara", "Observaciones", 
+                "ID", "Latitud", "Longitud", "Tipo", "Folio", "Estado", "QR",
                 "Capturado Por", "Fecha de Captura", "Última Edición Por", "Fecha de Edición"
             ];
             
@@ -610,7 +653,9 @@
                     sanitize(point.lat),
                     sanitize(point.lng),
                     sanitize(point.lampType),
-                    sanitize(point.observations),
+                    sanitize(point.folio), // Campo Folio
+                    sanitize(point.estado), // Campo Estado
+                    sanitize(point.qr), // Campo QR
                     sanitize(point.capturedBy),
                     sanitize(timestamp),
                     sanitize(point.lastEditedBy || 'N/A'),
