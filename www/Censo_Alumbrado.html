@@ -1,0 +1,636 @@
+<script type="module">
+        // Importaciones de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, setLogLevel, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // CONFIGURACIÓN ESTÁTICA (FALLBACK) - CLAVE CORREGIDA
+        // =========================================================================
+        const FALLBACK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBtlHH530iJ4-oHnHP_TmstzYoMBAKjcqI", 
+            authDomain: "censoalumbradoonline-29023.firebaseapp.com",
+            projectId: "censoalumbradoonline-29023",
+            storageBucket: "censoalumbradoonline-29023.firebasestorage.app",
+            messagingSenderId: "205023155883",
+            appId: "1:205023155883:web:1597aa05ecb6c58bda49ee",
+            measurementId: "G-4JR0PJYCDW"
+        };
+        const FALLBACK_APP_DATA_ID = "censo-alumbrado-publico-v1";
+        
+        // Variables globales
+        let map;
+        let mapMarker; 
+        let app;       
+        let db;        
+        let auth;      
+        let userId = 'anonymous';
+        let appId = FALLBACK_APP_DATA_ID;
+        let pointsCache = []; 
+
+        // Coordenadas iniciales (Centro de México, por ejemplo)
+        const DEFAULT_COORDS = [19.4326, -99.1332]; 
+
+        // =========================================================================
+        // Inicialización de Variables de Entorno (Canvas / Fallback)
+        // =========================================================================
+        let firebaseConfig = null;
+        let initialAuthToken = null;
+        
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            appId = typeof __app_id !== 'undefined' ? __app_id : FALLBACK_APP_DATA_ID; 
+
+            if (!firebaseConfig) {
+                firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+                console.warn("ADVERTENCIA: Usando configuración estática (Fallback) de Firebase.");
+            }
+
+        } catch (e) {
+            firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+            console.error("Fallo la carga de variables de Canvas. Usando configuración estática. Error:", e);
+        }
+        
+        // Elementos del DOM
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const appContainer = document.getElementById('app-container');
+        const userIdSpan = document.getElementById('user-id');
+        const appIdSpan = document.getElementById('app-id');
+        const geoStatus = document.getElementById('geo-status');
+        const savePointBtn = document.getElementById('save-point-btn');
+        const locateMeBtn = document.getElementById('locate-me-btn');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const pointsList = document.getElementById('points-list');
+        const pointsCount = document.getElementById('points-count');
+        const noPointsMessage = document.getElementById('no-points-message');
+        
+        // Formulario de registro/edición (Metadatos)
+        const inputLat = document.getElementById('input-lat');
+        const inputLng = document.getElementById('input-lng');
+        const inputLampType = document.getElementById('input-lamp-type');
+        const inputFolio = document.getElementById('input-folio'); 
+        const inputEstado = document.getElementById('input-estado'); 
+        const inputQR = document.getElementById('input-qr'); 
+
+        // Modal de Edición
+        const editModal = document.getElementById('edit-modal');
+        const editCoords = document.getElementById('edit-coords');
+        const editLampType = document.getElementById('edit-lamp-type');
+        const editFolio = document.getElementById('edit-folio'); 
+        const editEstado = document.getElementById('edit-estado'); 
+        const editQR = document.getElementById('edit-qr'); 
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const modalSaveBtn = document.getElementById('modal-save-btn');
+
+        // =========================================================================
+        // Utilidades
+        // =========================================================================
+
+        function showMessage(type, message) {
+            const container = document.getElementById('message-container');
+            const colorClasses = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+
+            const div = document.createElement('div');
+            div.className = `${colorClasses[type]} text-white p-3 rounded-lg shadow-lg max-w-xs transition-opacity duration-300 opacity-0`;
+            div.textContent = message;
+            
+            container.appendChild(div);
+            setTimeout(() => div.classList.add('opacity-100'), 10);
+            setTimeout(() => {
+                div.classList.remove('opacity-100');
+                div.classList.add('opacity-0');
+                setTimeout(() => div.remove(), 300);
+            }, 5000);
+        }
+
+        /**
+         * FUNCIÓN CRÍTICA: Construye la referencia de la colección para datos PÚBLICOS.
+         */
+        function getGeoPointsCollectionRef() {
+            // Colección pública: artifacts/{appId}/public/data/geo_points
+            const collectionPath = `artifacts/${appId}/public/data/geo_points`; 
+            // 'db' está definido globalmente
+            return collection(db, collectionPath);
+        }
+
+        // =========================================================================
+        // LÓGICA DE MAPA (Leaflet)
+        // =========================================================================
+
+        function initializeMap() {
+            if (map) map.remove(); 
+
+            map = L.map('map-container').setView(DEFAULT_COORDS, 13);
+            
+            // Capa de Tiles (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+
+            // Marcador inicial para la selección
+            mapMarker = L.marker(DEFAULT_COORDS, {
+                draggable: true,
+                autoPan: true
+            }).addTo(map);
+
+            // Evento click en el mapa para mover el marcador
+            map.on('click', (e) => {
+                updateMarkerPosition(e.latlng.lat, e.latlng.lng);
+            });
+            
+            // Evento drag del marcador para actualizar las coordenadas
+            mapMarker.on('dragend', (e) => {
+                const latLng = mapMarker.getLatLng();
+                updateMarkerPosition(latLng.lat, latLng.lng);
+            });
+
+            // Establecer posición inicial en los inputs y el botón
+            updateMarkerPosition(DEFAULT_COORDS[0], DEFAULT_COORDS[1]);
+        }
+        
+        function updateMarkerPosition(lat, lng, centerMap = false) {
+            const latLng = L.latLng(lat, lng);
+            mapMarker.setLatLng(latLng);
+            inputLat.value = lat.toFixed(6);
+            inputLng.value = lng.toFixed(6);
+            savePointBtn.disabled = false; 
+            
+            if (centerMap) {
+                map.setView(latLng, 15);
+            }
+        }
+        
+        // Botón para usar la ubicación actual
+        locateMeBtn.addEventListener('click', () => {
+            geoStatus.textContent = "Obteniendo ubicación...";
+            geoStatus.className = 'text-xs font-medium text-red-500';
+            locateMeBtn.disabled = true;
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        updateMarkerPosition(latitude, longitude, true); // Mover marcador y centrar mapa
+                        geoStatus.textContent = "Ubicación actual cargada.";
+                        geoStatus.className = 'text-xs font-medium text-green-600';
+                        locateMeBtn.disabled = false;
+                    },
+                    (error) => {
+                        showMessage('error', `Permiso de ubicación denegado o error: ${error.message}`);
+                        geoStatus.textContent = `Error Geo-localización: ${error.message}.`;
+                        geoStatus.className = 'text-xs font-medium text-red-500';
+                        locateMeBtn.disabled = false;
+                        console.error(error);
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } else {
+                showMessage('error', "El navegador no soporta Geo-localización.");
+                geoStatus.textContent = "El navegador no soporta Geo-localización.";
+                locateMeBtn.disabled = false;
+            }
+        });
+
+
+        // =========================================================================
+        // LÓGICA CRUD (Firebase)
+        // =========================================================================
+
+        // 1. Guardar/Añadir Punto
+        savePointBtn.addEventListener('click', () => {
+            const lat = parseFloat(inputLat.value);
+            const lng = parseFloat(inputLng.value);
+            const lampType = inputLampType.value.trim();
+            
+            // OBTENER NUEVOS CAMPOS
+            const folio = inputFolio.value.trim();
+            const estado = inputEstado.value.trim();
+            const qr = inputQR.value.trim();
+
+            if (isNaN(lat) || isNaN(lng) || !lampType) {
+                showMessage('error', 'Por favor, selecciona un punto en el mapa y el Tipo.');
+                return;
+            }
+            
+            const geoData = {
+                lat: lat,
+                lng: lng,
+                lampType: lampType,
+                // GUARDAR NUEVOS CAMPOS
+                folio: folio,
+                estado: estado,
+                qr: qr,
+                // FIN NUEVOS CAMPOS
+                timestamp: serverTimestamp(),
+                capturedBy: userId,
+            };
+
+            savePointBtn.disabled = true;
+            addDoc(getGeoPointsCollectionRef(), geoData)
+                .then(() => {
+                    showMessage('success', `¡Punto registrado! Folio: ${folio || 'N/A'}`);
+                    // Limpiamos los campos del formulario de metadatos.
+                    inputLampType.value = '';
+                    inputFolio.value = ''; 
+                    inputEstado.value = ''; 
+                    inputQR.value = ''; 
+                    savePointBtn.disabled = false;
+                })
+                .catch(error => {
+                    console.error("Error al añadir documento:", error);
+                    let errorMsg = error.message.includes('permission-denied') 
+                                 ? 'Error de Permiso: Revisa las reglas de seguridad de Firestore (deben permitir write: if request.auth != null).' 
+                                 : `Error al registrar: ${error.message}`;
+                    showMessage('error', errorMsg);
+                    savePointBtn.disabled = false;
+                });
+        });
+
+
+        // 2. Escuchar Puntos en Tiempo Real
+        function listenForGeoPoints() {
+            const q = query(getGeoPointsCollectionRef());
+
+            onSnapshot(q, (snapshot) => {
+                pointsCache = [];
+                snapshot.forEach((doc) => {
+                    pointsCache.push({ id: doc.id, ...doc.data() });
+                });
+                
+                renderPointsList(pointsCache);
+                pointsCount.textContent = `Total de puntos: ${pointsCache.length}`;
+                renderMapMarkers(pointsCache); // Renderiza todos los puntos en el mapa
+                
+                // Habilitar o deshabilitar el botón de exportación
+                exportCsvBtn.disabled = pointsCache.length === 0;
+
+            }, (error) => {
+                console.error("Error en onSnapshot:", error);
+                showMessage('error', `Error de conexión en tiempo real: ${error.message}`);
+            });
+        }
+        
+        // 3. Renderizar Puntos en la Lista y en el Mapa
+        function renderPointsList(points) {
+            pointsList.innerHTML = ''; 
+            
+            if (points.length === 0) {
+                noPointsMessage.classList.remove('hidden');
+                pointsList.appendChild(noPointsMessage);
+                return;
+            }
+            noPointsMessage.classList.add('hidden');
+
+            points.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+            points.forEach(point => {
+                const timeStr = point.timestamp ? new Date(point.timestamp.toDate()).toLocaleString('es-MX') : 'Cargando...';
+                const displayId = point.capturedBy.length > 15 ? point.capturedBy.substring(0, 8) + '...' : point.capturedBy; 
+                
+                const div = document.createElement('div');
+                div.id = `point-${point.id}`; // Añadido para el resaltado
+                div.className = 'p-4 border border-gray-200 bg-white rounded-lg shadow-sm hover:shadow-md transition duration-150 flex justify-between items-center';
+                div.innerHTML = `
+                    <div>
+                        <p class="text-gray-900 font-medium">Latitud: <span class="font-mono text-sm text-blue-600">${point.lat.toFixed(6)}</span>, Longitud: <span class="font-mono text-sm text-blue-600">${point.lng.toFixed(6)}</span></p>
+                        <p class="text-sm mt-1">Tipo: <span class="font-semibold">${point.lampType}</span> | Folio: ${point.folio || 'N/A'} | Estado: ${point.estado || 'N/A'} | QR: ${point.qr || 'N/A'}</p>
+                        <p class="text-xs text-gray-500 mt-1">Reg. por: ${displayId} | Hora: ${timeStr}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button data-id="${point.id}" class="edit-btn text-sm p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition" title="Editar Metadatos">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button data-id="${point.id}" class="delete-btn text-sm p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition" title="Borrar Punto">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+                pointsList.appendChild(div);
+            });
+            
+            // Adjuntar listeners a los nuevos botones
+            document.querySelectorAll('.edit-btn').forEach(button => {
+                button.addEventListener('click', handleEditClick);
+            });
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', handleDeleteClick);
+            });
+        }
+        
+        // 4. Renderizar Marcadores en el Mapa
+        function renderMapMarkers(points) {
+            // Elimina todos los marcadores existentes (excepto el de registro)
+            map.eachLayer(layer => {
+                // Se asegura de no eliminar el marcador rojo de selección
+                if (layer instanceof L.Marker && layer !== mapMarker) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            points.forEach(point => {
+                const marker = L.marker([point.lat, point.lng]).addTo(map);
+                
+                // Popup con información y botón de edición/borrado
+                const popupContent = `
+                    <p class="font-bold text-sm">Punto #${point.id.substring(0, 5)}</p>
+                    <p class="text-xs">Tipo: ${point.lampType}</p>
+                    <p class="text-xs">Folio: ${point.folio || 'N/A'}</p>
+                    <p class="text-xs">Estado: ${point.estado || 'N/A'}</p>
+                    <p class="text-xs">QR: ${point.qr || 'N/A'}</p>
+                    <hr class="my-1">
+                    <button data-id="${point.id}" class="map-edit-btn text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition mr-2">Editar</button>
+                    <button data-id="${point.id}" class="map-delete-btn text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition">Borrar</button>
+                `;
+
+                marker.bindPopup(popupContent);
+                
+                // Al abrir el popup, adjuntar listeners a los botones
+                marker.on('popupopen', () => {
+                    document.querySelector(`.map-edit-btn[data-id="${point.id}"]`).addEventListener('click', () => handleEditClick(null, point.id));
+                    document.querySelector(`.map-delete-btn[data-id="${point.id}"]`).addEventListener('click', () => handleDeleteClick(null, point.id));
+                });
+            });
+        }
+
+
+        // 5. Edición y Borrado (CRUD)
+        
+        function handleEditClick(event, id = null) {
+            const pointId = id || event.currentTarget.dataset.id;
+            const pointToEdit = pointsCache.find(p => p.id === pointId);
+            
+            if (!pointToEdit) {
+                showMessage('error', 'Punto no encontrado para editar.');
+                return;
+            }
+            
+            // Llenar el modal con los datos actuales
+            editCoords.textContent = `${pointToEdit.lat.toFixed(6)}, ${pointToEdit.lng.toFixed(6)}`;
+            editLampType.value = pointToEdit.lampType;
+            editFolio.value = pointToEdit.folio || ''; 
+            editEstado.value = pointToEdit.estado || ''; 
+            editQR.value = pointToEdit.qr || ''; 
+            
+            // Guardar el ID en el botón de guardar del modal
+            modalSaveBtn.dataset.id = pointId;
+            
+            // Mostrar el modal
+            editModal.classList.remove('hidden');
+            editModal.classList.add('flex');
+        }
+
+        modalCancelBtn.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+            editModal.classList.remove('flex');
+        });
+        
+        modalSaveBtn.addEventListener('click', () => {
+            const pointId = modalSaveBtn.dataset.id;
+            const updatedLampType = editLampType.value.trim();
+            
+            // OBTENER VALORES ACTUALIZADOS DE LOS NUEVOS CAMPOS DEL MODAL
+            const updatedFolio = editFolio.value.trim();
+            const updatedEstado = editEstado.value.trim();
+            const updatedQR = editQR.value.trim();
+            
+            if (!updatedLampType) {
+                showMessage('error', 'El campo Tipo no puede estar vacío.');
+                return;
+            }
+
+            const pointRef = doc(getGeoPointsCollectionRef(), pointId);
+            
+            updateDoc(pointRef, {
+                lampType: updatedLampType,
+                // ACTUALIZAR NUEVOS CAMPOS
+                folio: updatedFolio,
+                estado: updatedEstado,
+                qr: updatedQR,
+                // FIN NUEVOS CAMPOS
+                lastEditedBy: userId,
+                lastEditedAt: serverTimestamp()
+            })
+            .then(() => {
+                showMessage('success', 'Punto actualizado exitosamente.');
+                editModal.classList.add('hidden');
+                editModal.classList.remove('flex');
+                
+                // === Resaltado de Edición ===
+                const element = document.getElementById(`point-${pointId}`);
+                if (element) {
+                    element.style.backgroundColor = '#fef3c7'; // Amarillo claro
+                    setTimeout(() => {
+                        element.style.backgroundColor = ''; // Volver al color original
+                    }, 2000);
+                }
+                // ============================
+            })
+            .catch(error => {
+                console.error("Error al actualizar documento:", error);
+                showMessage('error', `Error al actualizar: ${error.message}`);
+            });
+        });
+        
+        function handleDeleteClick(event, id = null) {
+            const pointId = id || event.currentTarget.dataset.id;
+            const pointRef = doc(getGeoPointsCollectionRef(), pointId);
+            
+            // Borrar directamente
+            deleteDoc(pointRef)
+            .then(() => {
+                showMessage('info', `Punto #${pointId.substring(0, 5)} eliminado.`);
+            })
+            .catch(error => {
+                console.error("Error al borrar documento:", error);
+                showMessage('error', `Error al borrar: ${error.message}`);
+            });
+        }
+        
+        // =========================================================================
+        // LÓGICA DE EXPORTACIÓN A CSV
+        // =========================================================================
+        
+        exportCsvBtn.addEventListener('click', exportToCsv);
+
+        function exportToCsv() {
+            if (pointsCache.length === 0) {
+                showMessage('info', 'No hay datos para exportar.');
+                return;
+            }
+            
+            // 1. Definir encabezados (Headers) - ACTUALIZADOS
+            const headers = [
+                "ID", "Latitud", "Longitud", "Tipo", "Folio", "Estado", "QR",
+                "Capturado Por", "Fecha de Captura", "Última Edición Por", "Fecha de Edición"
+            ];
+            
+            // 2. Mapear los datos de los puntos a filas CSV
+            const csvRows = pointsCache.map(point => {
+                // Nota: toDate() solo está disponible si el campo es un Timestamp de Firestore
+                const timestamp = point.timestamp ? new Date(point.timestamp.toDate()).toLocaleString('es-MX') : '';
+                const lastEditedAt = point.lastEditedAt ? new Date(point.lastEditedAt.toDate()).toLocaleString('es-MX') : '';
+                
+                // Función para sanear campos con comas (encerrar en comillas)
+                const sanitize = (value) => {
+                    // Reemplaza comillas internas por doble comilla (estándar CSV)
+                    const str = String(value || '').replace(/"/g, '""'); 
+                    // Encierra en comillas si contiene caracteres especiales
+                    return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str}"` : str;
+                };
+
+                return [
+                    sanitize(point.id),
+                    sanitize(point.lat),
+                    sanitize(point.lng),
+                    sanitize(point.lampType),
+                    sanitize(point.folio), 
+                    sanitize(point.estado), 
+                    sanitize(point.qr), 
+                    sanitize(point.capturedBy),
+                    sanitize(timestamp),
+                    sanitize(point.lastEditedBy || 'N/A'),
+                    sanitize(lastEditedAt || 'N/A')
+                ].join(',');
+            });
+
+            // 3. Unir encabezados y filas
+            const csvContent = [
+                headers.join(','),
+                ...csvRows
+            ].join('\n');
+            
+            // 4. Crear Blob y forzar la descarga
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            // Formato del nombre del archivo: censo_alumbrado_YYYYMMDD_HHMM.csv
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `censo_alumbrado_${dateStr}_${timeStr}.csv`);
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showMessage('success', 'Exportación a CSV completada.');
+        }
+
+
+        // =========================================================================
+        // FUNCIONALIDAD ANTI-INSPECCIÓN (Ctrl+U, F12, Clic Derecho) 🛑 NO ES SEGURIDAD REAL
+        // =========================================================================
+        function disableInspection(e) {
+            // Deshabilita el clic derecho (Menú contextual)
+            if (e.type === 'contextmenu') {
+                showMessage('info', 'Función deshabilitada para esta aplicación.');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Deshabilita F12, Ctrl+Shift+I, y Ctrl+U
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) || (e.ctrlKey && (e.key === 'U' || e.key === 'u'))) {
+                e.preventDefault();
+                showMessage('info', 'Acceso a herramientas de desarrollador bloqueado.');
+                return false;
+            }
+        }
+
+        // Aplica los listeners de eventos
+        document.addEventListener('contextmenu', disableInspection); // Clic derecho
+        document.addEventListener('keydown', disableInspection); // Teclado
+
+
+        // =========================================================================
+        // Inicialización General
+        // =========================================================================
+
+        async function initializeFirebase() {
+            try {
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Configuración de Firebase incompleta o no disponible.");
+                }
+                
+                setLogLevel('debug'); 
+                
+                // La variable 'app' ahora está disponible globalmente
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app); 
+                appIdSpan.textContent = appId;
+
+                // Intento de Auth
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth); 
+                }
+
+                // Esperar a que el estado de autenticación cambie
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid; 
+                        userIdSpan.textContent = userId.length > 15 ? userId.substring(0, 15) + '...' : userId;
+                        savePointBtn.disabled = true; // Deshabilitar hasta que se seleccione punto
+                        geoStatus.textContent = "Autenticado y conectado a Firestore.";
+                        geoStatus.className = 'text-xs font-medium text-green-600';
+                        
+                        // La variable 'db' ahora está disponible globalmente
+                        db = getFirestore(app);
+                        listenForGeoPoints();
+                        initializeMap(); // Inicializar el mapa después de tener Auth
+
+                    } else {
+                        userIdSpan.textContent = 'NO AUTENTICADO';
+                        savePointBtn.disabled = true;
+                        geoStatus.textContent = "Error: Sesión no establecida.";
+                        geoStatus.className = 'text-xs font-medium text-red-500';
+                    }
+
+                    // Ocultar overlay y mostrar app
+                    loadingOverlay.classList.add('opacity-0');
+                    setTimeout(() => {
+                        loadingOverlay.classList.add('hidden');
+                        appContainer.classList.remove('hidden');
+                        appContainer.classList.add('opacity-100');
+                        // CORRECCIÓN CLAVE: Esto asegura que Leaflet dibuje el mapa
+                        if (map) {
+                            map.invalidateSize();
+                        }
+                    }, 300);
+                });
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                
+                let errorMessage;
+                if (error.message.includes("auth/configuration-not-found")) {
+                    errorMessage = "Error Crítico: Firebase: HABILITA 'Authentication' y el método 'Anónimo' en la Consola.";
+                } else {
+                    errorMessage = `Error Crítico de Inicialización: ${error.message}`;
+                }
+                    
+                geoStatus.textContent = errorMessage;
+                geoStatus.className = 'text-xs font-medium text-red-500';
+                
+                // Asegurar que el overlay se quite incluso con errores
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingOverlay.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    appContainer.classList.add('opacity-100');
+                }, 300);
+            }
+        }
+
+        // Iniciar la aplicación
+        initializeFirebase();
+
+    </script>
